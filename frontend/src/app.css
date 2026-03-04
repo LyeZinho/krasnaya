@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+@import "tailwindcss";
+
+/* 
+  Krasnaya Design System: Soviet Brutalism + Glassmorphism
+*/
+@theme {
+    --color-soviet-red: #CC3333;
+    --color-soviet-black: #1A1A1B;
+    --color-soviet-dark: #252526;
+
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --border-width-soviet: 4px;
+}
+
+@layer base {
+    :root {
+        --soviet-border: 4px solid #000;
+        --soviet-shadow: 8px 8px 0px #000;
+        --glass-bg: rgba(255, 255, 255, 0.04);
+        --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+        background-color: var(--color-soviet-black);
+        color: white;
+        font-family: var(--font-mono);
+    }
+}
+
+@layer components {
+    .brutal-card {
+        border: var(--soviet-border);
+        box-shadow: var(--soviet-shadow);
+        background: var(--glass-bg);
+        backdrop-filter: blur(15px);
+        position: relative;
+        overflow: hidden;
+    }
+}

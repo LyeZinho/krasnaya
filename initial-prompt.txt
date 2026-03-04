@@ -1,0 +1,1781 @@
+
+Conversa com o Gemini
+Disse
+Eu quero criar uma framework para bots do discord onde eu como programador crio uma estrutura pré montada e os meus users podem customizar completamente como o bot funciona,
+
+
+
+
+
+motivo, eu estou cançado de alterar features manualmente toda hora que me pedem, então eu quero deixar que eles façam isso.
+
+
+
+
+
+stack, nestjs (modular com adapters), zod, sveltkit para website frontend, bullmq para workers, psql, redis, etc.
+
+
+
+ao invez de matar o meu servidor com websockets eu quero usar SSE(server sent events) para coisas como monitorar eventos do bot e etc.
+
+
+
+claro, usar webhooks e etc.
+
+O Gemini disse
+Essa é a evolução natural de qualquer desenvolvedor que cansa de ser "suporte de luxo" para os próprios usuários. Você está basicamente querendo construir um No-Code/Low-Code Engine para Discord, o que é um desafio técnico excelente.
+
+Com a sua stack (NestJS, BullMQ, Zod), você já tem a base perfeita para lidar com concorrência e validação. Aqui está uma visão arquitetural de como estruturar isso para que seja escalável e seguro.
+
+1. O Core: Arquitetura Orientada a Eventos
+Para que o usuário "programe" sem tocar no código, você precisa transformar ações do Discord em um Pipeline de Gatilhos e Ações.
+
+Trigger (Gatilho): Um evento do Discord (MessageCreate, InteractionCreate).
+
+Logic (Filtros): Validações via Zod (ex: "A mensagem contém a palavra X?").
+
+Action (Ação): O que o bot faz (Enviar mensagem, dar cargo, banir).
+
+Por que BullMQ é o seu melhor amigo aqui?
+Não execute a lógica do bot diretamente no processo que recebe o Webhook.
+
+O Discord envia o evento.
+
+Seu NestJS valida o schema com Zod.
+
+Você joga o evento no BullMQ.
+
+Os Workers processam a lógica customizada do usuário. Isso evita que um bot "pesado" de um usuário trave o gateway dos outros.
+
+2. Customização via JSON Graph (A "Programação")
+Em vez de deixar o usuário escrever código (o que seria um pesadelo de segurança), você armazena a configuração no PostgreSQL como um JSON estruturado.
+
+Exemplo de como o SvelteKit enviaria para o back-end:
+
+JSON
+{
+  "trigger": "on_message",
+  "conditions": { "content_includes": "ajuda" },
+  "actions": [
+    { "type": "send_message", "payload": { "text": "Como posso ajudar?" } },
+    { "type": "add_role", "payload": { "role_id": "12345" } }
+  ]
+}
+3. Monitoramento com SSE (Server-Sent Events)
+Excelente escolha. Websockets são overkill se você só quer "cuspir" logs e status do bot para o dashboard no SvelteKit.
+
+No NestJS: Use o decorator @Sse().
+
+Fluxo: Quando o BullMQ terminar uma tarefa, ele publica um evento no Redis Pub/Sub. O controller SSE escuta esse canal e envia para o frontend em tempo real.
+
+Vantagem: Unidirecional, mais leve para o servidor e reconecta automaticamente.
+
+4. A Estratégia de Adapters (NestJS)
+Como você quer algo modular, crie Adapters para as ações.
+
+DiscordAdapter: Envolve a biblioteca (discord.js ou sapphire).
+
+ActionAdapter: Uma interface comum para que, no futuro, seu "bot" possa enviar mensagens não só no Discord, mas via Telegram ou E-mail, apenas trocando o módulo.
+
+5. Segurança: O Ponto Crítico
+Já que os usuários vão "programar" o comportamento:
+
+Rate Limit por Usuário: Use o Redis para garantir que o bot de um usuário não faça spam e tome ban no IP do seu servidor.
+
+Sandbox: Se você permitir lógica complexa (como scripts JS curtos), use a biblioteca vm2 ou isolated-vm, mas o ideal é manter tudo via blocos lógicos (JSON) para evitar execução de código malicioso.
+
+Sugestão de Próximo Passo
+Para começar, você precisa definir o Schema de Automação. Sem ele, o frontend (SvelteKit) não saberá o que renderizar.
+
+Você gostaria que eu ajudasse a desenhar um Schema Zod que cubra essa estrutura de "Gatilho -> Condição -> Ação" para o seu banco de dados?
+
+Disse
+sim faça isso, crie um texto explicando o esquema
+
+O Gemini disse
+Para que sua framework seja escalável, o segredo não é tratar o bot como um "script", mas como um Motor de Fluxo de Dados.
+
+O esquema abaixo utiliza o Zod para criar uma estrutura de árvore lógica. No banco de dados (PostgreSQL), você salvará isso como um JSONB, o que permite consultas rápidas e flexibilidade total para o frontend no SvelteKit.
+
+O Conceito: Trigger-Condition-Action (TCA)
+A ideia é que cada automação seja composta por:
+
+Trigger: O evento que dispara o fluxo.
+
+Conditions: Filtros lógicos (E/OU) que decidem se o fluxo continua.
+
+Actions: A lista de tarefas que o bot executará.
+
+O Esquema Zod
+TypeScript
+import { z } from 'zod';
+
+// 1. Tipos de Gatilhos Suportados
+const TriggerSchema = z.object({
+  type: z.enum(['MESSAGE_CREATE', 'MEMBER_JOIN', 'INTERACTION_CREATE', 'SCHEDULED_EVENT']),
+  config: z.record(z.any()).optional(), // Ex: ID do canal específico ou cron expression
+});
+
+// 2. Operadores de Comparação para as Condições
+const ConditionSchema = z.object({
+  field: z.string(), // Ex: "message.content", "user.id", "member.roles"
+  operator: z.enum(['equals', 'contains', 'matches_regex', 'has_role', 'greater_than']),
+  value: z.any(),
+});
+
+// 3. Definição das Ações que o Bot pode tomar
+const ActionSchema = z.object({
+  type: z.enum(['SEND_MESSAGE', 'ADD_ROLE', 'KICK_MEMBER', 'BAN_MEMBER', 'REPLY_INTERACTION']),
+  params: z.object({
+    content: z.string().optional(),
+    embed: z.record(z.any()).optional(),
+    roleId: z.string().optional(),
+    delay: z.number().default(0), // Delay em milissegundos via BullMQ
+  }),
+});
+
+// 4. O Fluxo Completo (A Automação)
+export const AutomationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(3),
+  enabled: z.boolean().default(true),
+  trigger: TriggerSchema,
+  // Aceita uma lista de condições que devem ser todas verdadeiras (AND)
+  conditions: z.array(ConditionSchema).default([]),
+  actions: z.array(ActionSchema),
+  metadata: z.object({
+    last_run: z.date().nullable().optional(),
+    usage_count: z.number().default(0),
+  }),
+});
+
+export type Automation = z.infer<typeof AutomationSchema>;
+Explicação da Estrutura
+1. Flexibilidade com field e operator
+Ao invés de criar uma condição fixa para "Mensagem que contém 'x'", você cria um motor genérico. No seu Worker (BullMQ), você usará um utilitário de get (como o lodash.get) para buscar o valor no objeto do evento do Discord usando a string do field.
+
+Exemplo: Se o field for "author.username", seu código buscará essa propriedade no evento e comparará com o value usando o operator.
+
+2. Integração com BullMQ (O campo delay)
+Note que no ActionSchema incluí um campo delay. Como você está usando BullMQ, quando o usuário configurar um atraso na ação, você simplesmente adiciona o job na fila com a opção { delay: X }. Isso remove a necessidade de manter timers ativos na memória do NestJS.
+
+3. Validação no Frontend e Backend
+Com o SvelteKit, você pode importar esse mesmo esquema Zod para validar o formulário de criação de comandos antes mesmo de enviar o JSON para a API. No NestJS, você usa o ZodValidationPipe para garantir que ninguém envie um JSON malicioso para o banco.
+
+4. O Papel do PostgreSQL e JSONB
+No Prisma ou TypeORM, você definirá a coluna de configuração como jsonb. Isso permite que você faça queries potentes, como:
+
+"Selecione todos os fluxos onde o gatilho é MESSAGE_CREATE e o canal monitorado é X".
+
+Por onde começar a implementação?
+Agora que você tem o esquema, o próximo passo lógico é o Dispatcher.
+
+Gostaria que eu demonstrasse como criar o "Dispatcher" no NestJS, que recebe o evento do Discord, valida contra esse esquema e envia para o BullMQ?
+
+Disse
+outra coisa, a database que eu fiz foi bem mal feita porque eu estava cansado,
+
+
+
+porem eu tenho alguns backups, porem os mais importantes são os de badges,
+
+
+
+eu criei um sistema de cards que monta alguns svg's para ter feedback visual
+
+
+
+para db eu quero usar o orm.drizzle porque, 1. O prisma tem um overhead de migrações muito grande e para este projeto isto é muito overkill, porem ainda sim o drizzle é extremamente competente.
+
+
+
+database:
+
+
+
+import pg from 'pg';
+
+import dotenv from 'dotenv';
+
+
+
+dotenv.config();
+
+
+
+const { Pool } = pg;
+
+
+
+// Configuração do pool de conexões PostgreSQL
+
+const pool = new Pool({
+
+  host: process.env.DB_HOST || 'localhost',
+
+  port: parseInt(process.env.DB_PORT || '11900'),
+
+  database: process.env.DB_NAME || 'levelbot',
+
+  user: process.env.DB_USER || 'levelbot',
+
+  password: process.env.DB_PASSWORD || 'levelbot123',
+
+  max: 20,
+
+  idleTimeoutMillis: 30000,
+
+  connectionTimeoutMillis: 2000,
+
+});
+
+
+
+// Inicializar tabelas
+
+async function initDatabase() {
+
+  const client = await pool.connect();
+
+  try {
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS users (
+
+        user_id TEXT NOT NULL,
+
+        username TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        xp INTEGER DEFAULT 0,
+
+        level INTEGER DEFAULT 1,
+
+        messages INTEGER DEFAULT 0,
+
+        voice_time INTEGER DEFAULT 0,
+
+        last_message_at BIGINT DEFAULT 0,
+
+        coins INTEGER DEFAULT 0,
+
+        last_daily_claim BIGINT DEFAULT 0,
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+
+        PRIMARY KEY (user_id, guild_id)
+
+      );
+
+
+
+      CREATE INDEX IF NOT EXISTS idx_guild_xp ON users(guild_id, xp DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_user_guild ON users(user_id, guild_id);
+
+
+
+      CREATE TABLE IF NOT EXISTS items (
+
+        item_id SERIAL PRIMARY KEY,
+
+        name TEXT NOT NULL UNIQUE,
+
+        description TEXT,
+
+        price INTEGER NOT NULL,
+
+        emoji TEXT DEFAULT '📦',
+
+        type TEXT DEFAULT 'consumable',
+
+        hidden BOOLEAN DEFAULT FALSE,
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+
+      );
+
+
+
+      CREATE TABLE IF NOT EXISTS user_inventory (
+
+        user_id TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        item_id INTEGER NOT NULL REFERENCES items(item_id),
+
+        quantity INTEGER DEFAULT 1,
+
+        acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+
+        PRIMARY KEY (user_id, guild_id, item_id)
+
+      );
+
+
+
+      CREATE INDEX IF NOT EXISTS idx_inventory_user ON user_inventory(user_id, guild_id);
+
+
+
+      CREATE TABLE IF NOT EXISTS user_boosts (
+
+        user_id TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        boost_type TEXT NOT NULL,
+
+        multiplier FLOAT NOT NULL,
+
+        expires_at BIGINT NOT NULL,
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+
+        PRIMARY KEY (user_id, guild_id, boost_type)
+
+      );
+
+
+
+      CREATE INDEX IF NOT EXISTS idx_boosts_expiry ON user_boosts(user_id, guild_id, expires_at);
+
+
+
+      CREATE TABLE IF NOT EXISTS user_vips (
+
+        user_id TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        tier TEXT NOT NULL,
+
+        multiplier INTEGER NOT NULL,
+
+        expires_at BIGINT NOT NULL,
+
+        active BOOLEAN DEFAULT TRUE,
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+
+        PRIMARY KEY (user_id, guild_id, tier)
+
+      );
+
+
+
+      CREATE INDEX IF NOT EXISTS idx_vips_expiry ON user_vips(user_id, guild_id, expires_at);
+
+    `);
+
+    console.log('✅ Tabelas do banco de dados criadas/verificadas');
+
+  } catch (error) {
+
+    console.error('❌ Erro ao inicializar banco de dados:', error);
+
+    throw error;
+
+  } finally {
+
+    client.release();
+
+  }
+
+}
+
+
+
+
+
+
+
+    console.log('3️⃣ Criando tabela "items"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS items (
+
+        item_id SERIAL PRIMARY KEY,
+
+        name TEXT NOT NULL UNIQUE,
+
+        description TEXT,
+
+        price INTEGER NOT NULL,
+
+        emoji TEXT DEFAULT '📦',
+
+        type TEXT DEFAULT 'consumable',
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+
+      )
+
+    `);
+
+    console.log('✅ Tabela "items" criada\n');
+
+    
+
+    // Criar tabela user_inventory
+
+    console.log('4️⃣ Criando tabela "user_inventory"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS user_inventory (
+
+        user_id TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        item_id INTEGER NOT NULL REFERENCES items(item_id),
+
+        quantity INTEGER DEFAULT 1,
+
+        acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+
+        PRIMARY KEY (user_id, guild_id, item_id)
+
+      )
+
+    `);
+
+
+
+
+
+
+
+    console.log('1️⃣ Adicionando coluna "hidden" à tabela items...');
+
+    await client.query(`
+
+      ALTER TABLE items 
+
+      ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT FALSE
+
+    `);
+
+    console.log('✅ Coluna "hidden" adicionada\n');
+
+
+
+
+
+await client.query(`
+
+      CREATE TABLE IF NOT EXISTS user_vips (
+
+        user_id TEXT NOT NULL,
+
+        guild_id TEXT NOT NULL,
+
+        vip_tier TEXT NOT NULL,
+
+        multiplier FLOAT NOT NULL,
+
+        role_id TEXT,
+
+        activated_at BIGINT NOT NULL,
+
+        expires_at BIGINT NOT NULL,
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT * 1000,
+
+        PRIMARY KEY (user_id, guild_id)
+
+      );
+
+    `);
+
+    console.log('✅ Tabela "user_vips" criada\n');
+
+    
+
+
+
+await createItem(
+
+      'Boost VIP Gold',
+
+      'Multiplicador 2x de XP e Coins por 30 dias',
+
+      0, // Não tem preço (dado por admin)
+
+      '⚡',
+
+      'vip',
+
+      true // Oculto da loja
+
+    );
+
+    
+
+    await createItem(
+
+      'Boost VIP Platinum',
+
+      'Multiplicador 3x de XP e Coins por 30 dias',
+
+      0,
+
+      '💎',
+
+      'vip',
+
+      true // Oculto da loja
+
+    );
+
+    
+
+    await createItem(
+
+      'Boost VIP Ruby',
+
+      'Multiplicador 5x de XP e Coins por 30 dias',
+
+      0,
+
+      '💎',
+
+      'vip',
+
+      true // Oculto da loja
+
+    );
+
+    
+
+    // XP Boosts
+
+    await createItem(
+
+      'XP Boost 2x',
+
+      'Multiplica por 2x todo XP ganho por 1 hora',
+
+      50,
+
+      '⚡',
+
+      'boost',
+
+      false
+
+    );
+
+    
+
+    await createItem(
+
+      'XP Boost 3x',
+
+      'Multiplica por 3x todo XP ganho por 1 hora',
+
+      150,
+
+      '⚡⚡',
+
+      'boost',
+
+      true // Oculto da loja
+
+    );
+
+    
+
+    await createItem(
+
+      'XP Boost 5x',
+
+      'Multiplica por 5x todo XP ganho por 1 hora',
+
+      250,
+
+      '⚡⚡⚡',
+
+      'boost',
+
+      true // Oculto da loja
+
+    );
+
+    
+
+    // Pacotes de Experiência
+
+    await createItem(
+
+      'Pacote de Experiência Tier 1',
+
+      'Ganhe 150 XP + 10 PityCoins instantaneamente',
+
+      50,
+
+      '📦',
+
+      'consumable',
+
+      false
+
+    );
+
+    
+
+    await createItem(
+
+      'Pacote de Experiência Tier 2',
+
+      'Ganhe 250 XP + 20 PityCoins instantaneamente',
+
+      150,
+
+      '📦✨',
+
+      'consumable',
+
+      false
+
+    );
+
+    
+
+    await createItem(
+
+      'Pacote de Experiência Tier 3',
+
+      'Ganhe 350 XP + 40 PityCoins instantaneamente',
+
+      250,
+
+      '📦💎',
+
+      'consumable',
+
+      false
+
+    );
+
+
+
+const pool = new Pool({
+
+  host: process.env.DB_HOST || 'localhost',
+
+  port: parseInt(process.env.DB_PORT || '11900'),
+
+  database: process.env.DB_NAME || 'levelbot',
+
+  user: process.env.DB_USER || 'levelbot',
+
+  password: process.env.DB_PASSWORD || 'levelbot123',
+
+  max: 20,
+
+  idleTimeoutMillis: 30000,
+
+  connectionTimeoutMillis: 2000,
+
+});
+
+
+
+async function seedBadges() {
+
+  const client = await pool.connect();
+
+  
+
+  try {
+
+    console.log('🌱 Populando badges e missões...\n');
+
+    
+
+    // 1. Badges de Rank (1-6)
+
+    console.log('1️⃣ Criando badges de rank...');
+
+    
+
+    const rankBadges = [
+
+      { name: 'Rank 1 - Iniciante', tier: 1, minLevel: 1, maxLevel: 10, image: 'badge_rank_1.png' },
+
+      { name: 'Rank 2 - Aprendiz', tier: 2, minLevel: 11, maxLevel: 30, image: 'badge_rank_2.png' },
+
+      { name: 'Rank 3 - Experiente', tier: 3, minLevel: 31, maxLevel: 60, image: 'badge_rank_3.png' },
+
+      { name: 'Rank 4 - Veterano', tier: 4, minLevel: 61, maxLevel: 100, image: 'badge_rank_4.png' },
+
+      { name: 'Rank 5 - Elite', tier: 5, minLevel: 101, maxLevel: 150, image: 'badge_rank_5.png' },
+
+      { name: 'Rank 6 - Lendário', tier: 6, minLevel: 151, maxLevel: 999999, image: 'badge_rank_6.png' }
+
+    ];
+
+    
+
+    for (const rank of rankBadges) {
+
+      await client.query(`
+
+        INSERT INTO badges (name, description, image_path, badge_type, tier, is_active)
+
+        VALUES ($1, $2, $3, 'rank', $4, true)
+
+        ON CONFLICT (name) DO NOTHING
+
+      `, [
+
+        rank.name,
+
+        `Alcance o nível ${rank.minLevel}${rank.maxLevel < 999999 ? ` a ${rank.maxLevel}` : '+'}`,
+
+        rank.image,
+
+        rank.tier
+
+      ]);
+
+    }
+
+    console.log('✅ Badges de rank criadas!\n');
+
+
+
+    // Badges unicas 
+
+    const uniqueBadges = [
+
+        { name: 'Desenvolvedor', description: 'Badge exclusiva para desenvolvedores do bot', image: 'dev_badge.png' },
+
+    ];
+
+
+
+    for (const badge of uniqueBadges) {
+
+        await client.query(`
+
+            INSERT INTO badges (name, description, image_path, badge_type, is_active)
+
+            VALUES ($1, $2, $3, 'unique', true)
+
+            ON CONFLICT (name) DO NOTHING
+
+        `, [badge.name, badge.description, badge.image]);
+
+    }
+
+    console.log('✅ Badges únicas criadas!\n');
+
+
+
+    
+
+    // 2. Badge de Evento Especial (Natal 2025)
+
+    console.log('2️⃣ Criando badge de evento (Natal 2025)...');
+
+    const xmasExpiration = new Date('2026-01-07').getTime(); // Expira 7 de janeiro
+
+    await client.query(`
+
+      INSERT INTO badges (name, description, image_path, badge_type, is_active, expires_at)
+
+      VALUES ($1, $2, $3, 'event', true, $4)
+
+      ON CONFLICT (name) DO UPDATE SET expires_at = $4
+
+    `, [
+
+      'Natal 2025',
+
+      'Badge especial do evento de Natal 2025',
+
+      'badgexmas25.png',
+
+      xmasExpiration
+
+    ]);
+
+    console.log('✅ Badge de evento criada!\n');
+
+    
+
+    // 3. Badges de Missão
+
+    console.log('3️⃣ Criando badges de missão...');
+
+    
+
+    const missionBadges = [
+
+      { name: 'Conversador', desc: 'Envie 1000 mensagens', image: 'badge_mission_messages.png' },
+
+      { name: 'Maratonista', desc: 'Fique 300 horas em voz', image: 'badge_mission_voice.png' },
+
+      { name: 'Dedicado', desc: 'Colete daily por 30 dias seguidos', image: 'badge_mission_daily.png' },
+
+      { name: 'Colecionador', desc: 'Complete 10 missões', image: 'badge_mission_collector.png' }
+
+    ];
+
+    
+
+    for (const badge of missionBadges) {
+
+      await client.query(`
+
+        INSERT INTO badges (name, description, image_path, badge_type, is_active)
+
+        VALUES ($1, $2, $3, 'mission', true)
+
+        ON CONFLICT (name) DO NOTHING
+
+      `, [badge.name, badge.desc, badge.image]);
+
+    }
+
+    console.log('✅ Badges de missão criadas!\n');
+
+    
+
+    // 4. Missões
+
+    console.log('4️⃣ Criando missões...');
+
+    
+
+    // Buscar IDs das badges de missão
+
+    const conversadorBadge = await client.query(`SELECT badge_id FROM badges WHERE name = 'Conversador'`);
+
+    const maratonistaBadge = await client.query(`SELECT badge_id FROM badges WHERE name = 'Maratonista'`);
+
+    const dedicadoBadge = await client.query(`SELECT badge_id FROM badges WHERE name = 'Dedicado'`);
+
+    
+
+    const missions = [
+
+      {
+
+        name: 'Envie 1000 Mensagens',
+
+        description: 'Envie um total de 1000 mensagens no servidor',
+
+        type: 'messages',
+
+        target: 1000,
+
+        badgeId: conversadorBadge.rows[0]?.badge_id,
+
+        coins: 500
+
+      },
+
+      {
+
+        name: 'Fique 300 Horas em Voz',
+
+        description: 'Acumule 300 horas em canais de voz',
+
+        type: 'voice_time',
+
+        target: 1080000, // 300 horas em segundos
+
+        badgeId: maratonistaBadge.rows[0]?.badge_id,
+
+        coins: 1000
+
+      },
+
+      {
+
+        name: 'Alcance o Nível 50',
+
+        description: 'Alcance o nível 50 no servidor',
+
+        type: 'level',
+
+        target: 50,
+
+        badgeId: null,
+
+        coins: 1500
+
+      }
+
+    ];
+
+    
+
+    for (const mission of missions) {
+
+      await client.query(`
+
+        INSERT INTO missions (name, description, mission_type, target_value, reward_badge_id, reward_coins, is_active, is_repeatable)
+
+        VALUES ($1, $2, $3, $4, $5, $6, true, false)
+
+        ON CONFLICT DO NOTHING
+
+      `, [
+
+        mission.name,
+
+        mission.description,
+
+        mission.type,
+
+        mission.target,
+
+        mission.badgeId,
+
+        mission.coins
+
+      ]);
+
+    }
+
+    console.log('✅ Missões criadas!\n');
+
+    
+
+    console.log('✅ Seed de badges concluído com sucesso!');
+
+    
+
+  } catch (error) {
+
+    console.error('❌ Erro durante seed:', error);
+
+    throw error;
+
+  } finally {
+
+    client.release();
+
+    await pool.end();
+
+  }
+
+}
+
+
+
+
+
+   // 1. Criar tabela de badges
+
+    console.log('1️⃣ Criando tabela "badges"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS badges (
+
+        badge_id SERIAL PRIMARY KEY,
+
+        name VARCHAR(100) NOT NULL UNIQUE,
+
+        description TEXT,
+
+        image_path VARCHAR(255) NOT NULL,
+
+        badge_type VARCHAR(50) NOT NULL, -- 'event', 'mission', 'rank'
+
+        tier INTEGER DEFAULT 1, -- Para badges de rank (1-6)
+
+        is_active BOOLEAN DEFAULT true,
+
+        expires_at BIGINT, -- Timestamp para badges de evento
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+
+      )
+
+    `);
+
+    console.log('✅ Tabela "badges" criada!\n');
+
+    
+
+    // 2. Criar tabela de badges dos usuários
+
+    console.log('2️⃣ Criando tabela "user_badges"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS user_badges (
+
+        id SERIAL PRIMARY KEY,
+
+        user_id VARCHAR(30) NOT NULL,
+
+        guild_id VARCHAR(30) NOT NULL,
+
+        badge_id INTEGER NOT NULL REFERENCES badges(badge_id) ON DELETE CASCADE,
+
+        earned_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
+
+        expires_at BIGINT, -- Para badges temporárias
+
+        UNIQUE(user_id, guild_id, badge_id)
+
+      )
+
+    `);
+
+    await client.query(`
+
+      CREATE INDEX IF NOT EXISTS idx_user_badges_user 
+
+      ON user_badges(user_id, guild_id)
+
+    `);
+
+    console.log('✅ Tabela "user_badges" criada!\n');
+
+    
+
+    // 3. Criar tabela de missões
+
+    console.log('3️⃣ Criando tabela "missions"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS missions (
+
+        mission_id SERIAL PRIMARY KEY,
+
+        name VARCHAR(100) NOT NULL,
+
+        description TEXT,
+
+        mission_type VARCHAR(50) NOT NULL, -- 'messages', 'voice_time', 'daily_streak', 'custom'
+
+        target_value INTEGER NOT NULL, -- Valor alvo (ex: 100 mensagens)
+
+        reward_badge_id INTEGER REFERENCES badges(badge_id) ON DELETE SET NULL,
+
+        reward_coins INTEGER DEFAULT 0,
+
+        is_active BOOLEAN DEFAULT true,
+
+        is_repeatable BOOLEAN DEFAULT false,
+
+        expires_at BIGINT, -- Missão temporária (evento)
+
+        created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000
+
+      )
+
+    `);
+
+    console.log('✅ Tabela "missions" criada!\n');
+
+    
+
+    // 4. Criar tabela de progresso das missões
+
+    console.log('4️⃣ Criando tabela "user_missions"...');
+
+    await client.query(`
+
+      CREATE TABLE IF NOT EXISTS user_missions (
+
+        id SERIAL PRIMARY KEY,
+
+        user_id VARCHAR(30) NOT NULL,
+
+        guild_id VARCHAR(30) NOT NULL,
+
+        mission_id INTEGER NOT NULL REFERENCES missions(mission_id) ON DELETE CASCADE,
+
+        current_value INTEGER DEFAULT 0,
+
+        completed BOOLEAN DEFAULT false,
+
+        completed_at BIGINT,
+
+        started_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000,
+
+        UNIQUE(user_id, guild_id, mission_id)
+
+      )
+
+    `);
+
+    await client.query(`
+
+      CREATE INDEX IF NOT EXISTS idx_user_missions_user 
+
+      ON user_missions(user_id, guild_id)
+
+    `);
+
+    await client.query(`
+
+      CREATE INDEX IF NOT EXISTS idx_user_missions_mission 
+
+      ON user_missions(mission_id)
+
+    `);
+
+    console.log('✅ Tabela "user_missions" criada!\n');
+
+    
+
+    console.log('✅ Migração de badges concluída com sucesso!');
+
+    
+
+  } catch (error) {
+
+    console.error('❌ Erro durante migração:', error);
+
+    throw error;
+
+  } finally {
+
+    client.release();
+
+    await pool.end();
+
+  }
+
+}
+
+O Gemini disse
+Entendido. O Prisma realmente pode ser um "canhão para matar uma formiga" quando o assunto é migração e overhead de runtime, especialmente em sistemas orientados a eventos como bots. O Drizzle ORM é a escolha certa: ele é basicamente TypeScript com esteroides que gera SQL puro, perfeito para performance.
+
+Vou converter seu backup e sua estrutura de badges para o formato Drizzle ORM (Postgres), organizando tudo de forma modular para o seu NestJS.
+
+1. Estrutura do Schema (Drizzle)
+Aqui está a tradução da sua lógica de SQL puro para o drizzle-orm/pg-core. Note que já incluí a tabela de automations que discutimos anteriormente.
+
+TypeScript
+import { 
+  pgTable, text, integer, bigint, boolean, 
+  primaryKey, index, serial, varchar, doublePrecision, jsonb 
+} from 'drizzle-orm/pg-core';
+
+// --- USUÁRIOS E LEVELING ---
+export const users = pgTable('users', {
+  userId: text('user_id').notNull(),
+  username: text('username').notNull(),
+  guildId: text('guild_id').notNull(),
+  xp: integer('xp').default(0),
+  level: integer('level').default(1),
+  messages: integer('messages').default(0),
+  voiceTime: integer('voice_time').default(0),
+  lastMessageAt: bigint('last_message_at', { mode: 'number' }).default(0),
+  coins: integer('coins').default(0),
+  lastDailyClaim: bigint('last_daily_claim', { mode: 'number' }).default(0),
+  createdAt: bigint('created_at', { mode: 'number' }).default(Math.floor(Date.now() / 1000)),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.guildId] }),
+  idxGuildXp: index('idx_guild_xp').on(table.guildId, table.xp),
+}));
+
+// --- LOJA E ITENS ---
+export const items = pgTable('items', {
+  itemId: serial('item_id').primaryKey(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  price: integer('price').notNull(),
+  emoji: text('emoji').default('📦'),
+  type: text('type').default('consumable'), // 'consumable', 'vip', 'boost'
+  hidden: boolean('hidden').default(false),
+  createdAt: bigint('created_at', { mode: 'number' }).default(Math.floor(Date.now() / 1000)),
+});
+
+export const userInventory = pgTable('user_inventory', {
+  userId: text('user_id').notNull(),
+  guildId: text('guild_id').notNull(),
+  itemId: integer('item_id').notNull().references(() => items.itemId),
+  quantity: integer('quantity').default(1),
+  acquiredAt: bigint('acquired_at', { mode: 'number' }).default(Math.floor(Date.now() / 1000)),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.guildId, table.itemId] }),
+}));
+
+// --- SISTEMA DE BADGES (Backup Consolidado) ---
+export const badges = pgTable('badges', {
+  badgeId: serial('badge_id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  description: text('description'),
+  imagePath: varchar('image_path', { length: 255 }).notNull(),
+  badgeType: varchar('badge_type', { length: 50 }).notNull(), // 'rank', 'event', 'mission', 'unique'
+  tier: integer('tier').default(1),
+  isActive: boolean('is_active').default(true),
+  expiresAt: bigint('expires_at', { mode: 'number' }),
+  createdAt: bigint('created_at', { mode: 'number' }).default(Date.now()),
+});
+
+export const userBadges = pgTable('user_badges', {
+  id: serial('id').primaryKey(),
+  userId: varchar('user_id', { length: 30 }).notNull(),
+  guildId: varchar('guild_id', { length: 30 }).notNull(),
+  badgeId: integer('badge_id').notNull().references(() => badges.badgeId, { onDelete: 'cascade' }),
+  earnedAt: bigint('earned_at', { mode: 'number' }).default(Date.now()),
+}, (table) => ({
+  unq: index('unq_user_badge').on(table.userId, table.guildId, table.badgeId),
+}));
+
+// --- SISTEMA DE AUTOMAÇÃO (A sua Framework) ---
+export const automations = pgTable('automations', {
+  id: text('id').primaryKey(), // UUID gerado no SvelteKit/Nest
+  guildId: text('guild_id').notNull(),
+  name: text('name').notNull(),
+  enabled: boolean('enabled').default(true),
+  trigger: jsonb('trigger').notNull(), // Estrutura Zod
+  conditions: jsonb('conditions').notNull().default([]),
+  actions: jsonb('actions').notNull().default([]),
+  createdAt: bigint('created_at', { mode: 'number' }).default(Date.now()),
+});
+2. Por que essa estrutura resolve seu cansaço:
+Badges de Rank Automáticas: Em vez de dar a badge manualmente, seu Worker do BullMQ, ao processar o ganho de XP, consulta o tier e level na tabela badges e insere na user_badges sem intervenção humana.
+
+A Framework de Automação: A tabela automations agora é o cérebro. O usuário cria o fluxo no SvelteKit, o NestJS salva o JSONB, e o bot apenas "executa o que está no banco".
+
+Sincronização de Tipos: Com o Drizzle, você pode exportar os tipos das tabelas diretamente para o frontend. Se você mudar uma coluna no backend, o SvelteKit vai te dar erro de tipagem na hora.
+
+3. Explicação Técnica: bigint e Timestamps
+Note que usei { mode: 'number' } nos bigint. Como você está lidando com IDs do Discord e Timestamps de JS (ms), o PostgreSQL pode reclamar de precisão se não for tratado como String ou BigInt. No entanto, para cálculos de XP e Tempo de Voz, o mode: 'number' facilita a matemática direta no código.
+
+Próximo Passo
+Para colocar isso para rodar, você precisará configurar o Drizzle Kit para ler esse arquivo de schema e empurrar para o seu banco.
+
+Você quer que eu prepare o arquivo de configuração drizzle.config.ts e o serviço de conexão do NestJS para você já começar a migrar esses dados?
+
+Disse
+a coisa aque é, eu quero dar o minimo de manutenção então seria uma boa ideia criar um esquema onde o user pode modificar a db de forma segura, e depois usar ela nos comandos.
+
+O Gemini disse
+Essa é a "cartada final" para acabar com a manutenção manual. O que você está descrevendo é um sistema de Custom Data Fields (ou Metadados Dinâmicos).
+
+Em vez de você criar colunas como xp ou coins para cada coisa nova que inventarem, você entrega uma tabela genérica de estados onde o usuário define a "Variável" e o bot a manipula.
+
+Aqui está como estruturar isso de forma segura usando Drizzle + JSONB para que o usuário "crie" o próprio banco de dados dele dentro da sua estrutura:
+
+1. O Esquema de Variáveis Customizadas (Drizzle)
+TypeScript
+import { pgTable, text, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+
+// Esta tabela armazena o "Estado" de cada usuário em cada guilda
+export const userCustomData = pgTable('user_custom_data', {
+  userId: text('user_id').notNull(),
+  guildId: text('guild_id').notNull(),
+  // O segredo está aqui: um JSONB que armazena chaves e valores arbitrários
+  // Ex: { "reputacao": 50, "classe": "mago", "avisos": 2 }
+  data: jsonb('data').$type<Record<string, any>>().default({}),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.guildId] }),
+}));
+2. Como isso funciona na prática (Sem manutenção)
+Com essa estrutura, você cria Ações de Automação genéricas no seu framework. O usuário, no seu frontend SvelteKit, configuraria algo assim:
+
+Evento: Ao enviar mensagem.
+
+Ação: SET_CUSTOM_VARIABLE
+
+Configuração: { "variable": "mensagens_totais", "operation": "INCREMENT", "value": 1 }
+
+Por que isso é seguro?
+Sandbox de Dados: O usuário só altera o que está dentro da coluna data dele. Ele nunca vai conseguir dar um DROP TABLE ou alterar colunas do sistema (como userId).
+
+Validação via Zod: Quando o usuário define uma variável no SvelteKit, você pode salvar um "Schema de Definição" para a guilda dele.
+
+Exemplo: A guilda "X" definiu que a variável pontos deve ser sempre um number. O seu NestJS valida isso com Zod antes de salvar no JSONB.
+
+3. Usando os dados nos comandos (Placeholder System)
+Para que o usuário use isso nos comandos, você implementa um sistema de Parsers. No código do bot, quando ele for enviar uma mensagem customizada pelo usuário:
+
+TypeScript
+// Exemplo de como o usuário escreveria a resposta no seu site:
+// "Olá {user}, você tem {data.reputacao} pontos de reputação!"
+
+async function parseMessage(template: string, user: any, guildId: string) {
+  const customData = await db.query.userCustomData.findFirst({
+    where: and(eq(userCustomData.userId, user.id), eq(userCustomData.guildId, guildId))
+  });
+
+  return template
+    .replace('{user}', user.username)
+    .replace(/{data\.(.*?)}/g, (_, key) => customData?.data[key] ?? '0');
+}
+4. A Arquitetura Final para "Zero Manutenção":
+Database: user_custom_data armazena tudo que o usuário inventar (pontos, karma, inventário customizado).
+
+Engine (NestJS): Apenas lê o JSONB e executa operações matemáticas simples (Add, Set, Remove) ou de texto.
+
+Frontend (SvelteKit): Uma interface de "Gerenciador de Variáveis" onde o usuário cria o nome da variável e o tipo (Número, Texto, Booleano).
+
+Worker (BullMQ): Processa as atualizações nessas variáveis em fila para não travar o banco com muitos updates simultâneos.
+
+Isso faz sentido para o seu fluxo? Se quiser, posso te mostrar como ficaria a função do Worker que faz esse "Update Dinâmico" no JSONB usando Drizzle.
+
+Disse
+ok agora vamos estruturar um estrutura basica para o frontend, vamos separar algumas coisas,
+
+
+
+a logica do bot deve ser separada da logica do app para evitarmos que os users quebrem o app,
+
+
+
+o que vai ser nessesário para nossa segurança,
+
+
+
+2 niveis de backoffice, ou seja um backoffice de gestão e um de administração, o de gestão vai ter as funcionalidades normais. o de administração vai ter gestão do sistema em si.
+
+
+
+1. Ledger de eventos,
+
+2. Rbac (granulado com uma logica de negativa ou seja se você só consegue alterar uma coisa se você tiver a permissão especifica para alterar aquilo, se tiver todas as permissões vocÊ não consegue alterar nada)
+
+3. Autenticação de 2 fatores (usando OTP)
+
+4. Encriptação de dados,
+
+5. Separação da logica de usabilidade e a logica de funcionamento
+
+6. Separação do frontend e do funcionamento via abstrações, isto é o frontend nunca deve chamar o backend diretamente e sim via componentes abstraidos.
+
+
+
+etc.
+
+O Gemini disse
+Essa é uma abordagem de nível Enterprise. Você está construindo o que chamamos de Multi-tenant SaaS com isolamento lógico. Para garantir que o usuário não quebre o "motor" enquanto mexe na "carroceria", precisamos de uma separação física e lógica rigorosa.
+
+Aqui está a estrutura de arquitetura proposta:
+
+1. Arquitetura de Comunicação (Abstração)
+Para cumprir o requisito de que o Frontend nunca chama o Backend diretamente, usaremos o padrão Service Layer + Proxy de API no SvelteKit.
+
+Camada de UI (Svelte): Apenas componentes visuais que emitem eventos ou chamam uma Store.
+
+Camada de Abstração (Client Services): Uma classe ou módulo que encapsula os fetchs. Se você mudar a API de REST para GraphQL amanhã, a UI nem percebe.
+
+Server-Side Proxy (SvelteKit Actions/Loaders): O frontend (browser) fala com o +page.server.ts, e este fala com o NestJS. Isso esconde as URLs do backend e gerencia tokens de forma segura (HttpOnly Cookies).
+
+2. RBAC Negativo (Logic-Based Access Control)
+Em vez de if (isAdmin), usaremos um sistema de denegação implícita.
+
+Default: Deny All.
+
+Granularidade: Cada ação (ex: bot.message.edit) é um recurso.
+
+Lógica Negativa: Você terá uma tabela de permissions e uma de denials. Se houver um registro de negação para aquele resource_id, o acesso é cortado mesmo que o usuário seja "Admin".
+
+TypeScript
+// Exemplo de verificação no NestJS Guard
+async function canAccess(user, action): boolean {
+  const permissions = await this.rbac.get(user.id);
+  // Se não tem a permissão explícita OU se existe uma negação específica, tchau.
+  if (!permissions.has(action) || permissions.isDenied(action)) return false;
+  return true;
+}
+3. Segurança e Criptografia
+Dados Sensíveis (Tokens, Webhooks): Use AES-256-GCM para encriptar campos no Postgres. O Drizzle permite fazer isso via custom types.
+
+2FA (OTP): Integrado ao fluxo de login. O backoffice de Administração obrigatoriamente exige o segundo fator para carregar qualquer rota.
+
+4. Estrutura do Frontend (SvelteKit)
+Plaintext
+src/
+├── lib/
+│   ├── components/       # UI Pura (Shadcn-svelte, etc)
+│   ├── services/         # Abstração de API (Aqui mora a lógica de chamada)
+│   │   ├── admin.service.ts
+│   │   ├── bot.service.ts
+│   │   └── auth.service.ts
+│   └── stores/           # Estado local sincronizado via SSE
+├── routes/
+│   ├── (auth)/           # Login e OTP
+│   ├── (app)/            # Backoffice de Gestão (Usuário final)
+│   │   └── dashboard/
+│   └── (admin)/          # Backoffice de Administração (Você)
+│       └── system-logs/  # Ledger de eventos
+5. Ledger de Eventos (Audit Log)
+Toda e qualquer alteração no banco de dados deve gerar uma entrada na tabela audit_logs. Isso é fundamental para a segurança:
+
+TypeScript
+export const auditLogs = pgTable('audit_logs', {
+  id: serial('id').primaryKey(),
+  actorId: text('actor_id').notNull(),    // Quem fez
+  action: text('action').notNull(),      // O quê (ex: "UPDATE_BOT_CONFIG")
+  targetId: text('target_id'),           // Em quem
+  oldValue: jsonb('old_value'),          // Estado anterior
+  newValue: jsonb('new_value'),          // Novo estado
+  ipAddress: text('ip_address'),
+  createdAt: bigint('created_at', { mode: 'number' }).default(Date.now()),
+});
+6. Separação da Lógica: Funcionamento vs. Usabilidade
+Logic of Functioning (NestJS Core): É o motor que processa o BullMQ, lida com o Discord Gateway e executa os fluxos JSON. Ele não sabe o que é um "Dashboard".
+
+Logic of Usability (NestJS API + SvelteKit): É a camada que permite ao humano interagir com o motor.
+
+Segurança: Se a API de Usabilidade cair, o Bot continua funcionando porque o Worker do BullMQ é um processo isolado que lê diretamente do Redis/Postgres.
+
+Próximo passo sugerido:
+Para garantir essa abstração no Frontend, eu posso criar um exemplo de Componente Abstraído no SvelteKit que se comunica com o Backend através de um Service Layer, mantendo a segurança do seu Backoffice.
+
+Deseja que eu monte o esqueleto desse Service Layer com suporte a encriptação e tratamento de erros?
+
+Disse
+Ok agora vamos estruturar a parte mais pratica o frontend,
+
+
+
+estilos de desing: brutalismo sovietico + glasmorfismo.
+
+tipografia: jetbrainsmono
+
+O Gemini disse
+Essa combinação estética é fenomenal. O Brutalismo Soviético traz o peso, as bordas grossas, o concreto e a funcionalidade crua, enquanto o Glassmorfismo adiciona a camada "cyberpunk" e tecnológica com transparências e desfoque de fundo (backdrop-filter).
+
+A JetBrains Mono fecha o pacote com aquela estética de "terminal de alta precisão".
+
+1. Design System: "Red Concrete & Glass"
+Paleta de Cores (Proposta)
+Concreto de Fundo: #1A1A1B (Um cinza quase preto, sólido).
+
+Vermelho Soviético (Destaque): #CC3333 (Para botões primários e alertas).
+
+Bordas Brutalistas: #000000 com 2px ou 4px de espessura (sem arredondamento ou arredondamento mínimo de 2px).
+
+Vidro (Glass): rgba(255, 255, 255, 0.05) com backdrop-filter: blur(12px).
+
+2. Estrutura de Componentes Abstraídos (SvelteKit)
+Seguindo sua regra: O componente nunca toca o fetch. Ele usa uma Action do SvelteKit que, por sua vez, usa o BotService.
+
+O Service de Abstração (src/lib/services/api.service.ts)
+TypeScript
+// Abstração total: O componente chama 'updateConfig', ele não sabe se é REST ou Socket.
+export class BotService {
+  static async updateAutomation(id: string, data: any) {
+    const response = await fetch(`/api/v1/automations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) throw new Error('Falha na comunicação com o Core.');
+    return response.json();
+  }
+}
+O Componente Brutalista/Glass (src/lib/components/ui/SovietCard.svelte)
+Este componente isola a usabilidade da lógica de funcionamento.
+
+Svelte
+<script lang="ts">
+  export let title: string;
+  export let status: 'active' | 'idle' | 'error' = 'idle';
+</script>
+
+<div class="soviet-card">
+  <div class="glass-overlay">
+    <header class="border-b-4 border-black p-4 flex justify-between items-center">
+      <h2 class="text-xl font-bold uppercase tracking-tighter text-white">
+        {title}
+      </h2>
+      <div class="status-indicator {status}" />
+    </header>
+    
+    <main class="p-6">
+      <slot />
+    </main>
+  </div>
+</div>
+
+<style>
+  .soviet-card {
+    background: #252526;
+    border: 4px solid #000;
+    box-shadow: 8px 8px 0px #000; /* Sombra sólida brutalista */
+    font-family: 'JetBrains Mono', monospace;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-overlay {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    height: 100%;
+    width: 100%;
+  }
+
+  .status-indicator {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #000;
+  }
+  
+  .active { background: #33cc33; box-shadow: 0 0 10px #33cc33; }
+  .error { background: #cc3333; box-shadow: 0 0 10px #cc3333; }
+</style>
+3. Dashboard: Gestão vs. Administração
+Para manter a separação de níveis de backoffice, usaremos layouts distintos no SvelteKit:
+
+Nível 1: Gestão (User Space)
+Estética: Mais "Glass", foco em usabilidade e configuração de triggers.
+
+Restrição: Só enxerga a própria guilda.
+
+Abstração: Componentes de "Arrastar Blocos" para montar a lógica TCA (Trigger-Condition-Action).
+
+Nível 2: Administração (System Space)
+Estética: Puro Brutalismo (Preto/Branco/Vermelho), foco em dados brutos.
+
+Funcionalidades:
+
+Ledger Global: Monitoramento de todos os Webhooks entrando.
+
+Kill Switch: Botão global para desativar workers do BullMQ se o Redis sobrecarregar.
+
+Gestão de RBAC: Configuração das negações específicas.
+
+4. O Monitoramento via SSE no Frontend
+Você mencionou que não quer matar o servidor com WebSockets. No SvelteKit, consumiremos o stream do NestJS assim:
+
+TypeScript
+// src/lib/stores/monitor.ts
+import { readable } from 'svelte/store';
+
+export const botLogs = readable([], (set) => {
+  if (typeof EventSource === 'undefined') return;
+
+  const eventSource = new EventSource('/api/v1/internal/monitor/sse');
+  
+  eventSource.onmessage = (event) => {
+    const newLog = JSON.parse(event.data);
+    // Atualiza a store com os logs do ledger em tempo real
+    set((prev) => [newLog, ...prev].slice(0, 100));
+  };
+
+  return () => eventSource.close();
+});
+5. Próximo Passo: O Ledger Visual
+Um sistema brutalista soviético precisa de um Log de Auditoria que pareça uma fita de teletipo (teleprinter).
+
+Você quer que eu desenhe a estrutura do Ledger de Eventos (Audit Log) com encriptação de ponta-a-ponta para o Backoffice de Administração?
+
+Disse
+estilos de desing: brutalismo sovietico + glasmorfismo.
+
+tipografia: jetbrainsmono
+
+
+
+poderia me retornar todas as paginas e a estrutura do frontend de cada uma?
+
+O Gemini disse
+Para criar essa interface, imagine uma central de controle nuclear da era soviética, mas operada através de um terminal de vidro flutuante. O Brutalismo Soviético entra com a hierarquia pesada, bordas grossas e grids matemáticos, enquanto o Glasmorfismo traz a profundidade e o contraste tecnológico.
+
+Aqui está a estrutura de páginas dividida pelos seus dois níveis de backoffice:
+
+1. Nível de Gestão (User Dashboard)
+Foco: Customização, usabilidade e feedback visual do bot.
+
+A. Dashboard: Visão Geral (/dashboard)
+Finalidade: Status do bot em tempo real via SSE.
+
+Estrutura:
+
+Header: Nome do Bot + Status (Online/Offline) com efeito de glow neon sobre vidro.
+
+Stats Grid: Cards brutalistas (bordas 4px) com contadores de: Mensagens processadas, XP total do servidor, Comandos executados.
+
+Mini Ledger: Um feed de eventos em tempo real (via SSE) mostrando as últimas 5 ações do bot.
+
+B. Automations Engine (/dashboard/flows)
+Finalidade: Onde o usuário "programa" o bot sem código.
+
+Estrutura:
+
+Flow List: Lista lateral de automações criadas.
+
+Visual Builder: Um canvas central onde o usuário monta o esquema TCA (Trigger -> Condition -> Action).
+
+Glass Panel: À direita, um painel flutuante para configurar os parâmetros da ação selecionada (ex: configurar o texto de uma SEND_MESSAGE).
+
+C. Inventário e Itens (/dashboard/economy)
+Finalidade: Gestão da loja e dos itens customizados.
+
+Estrutura:
+
+Item Grid: Tabela pesada com bordas pretas. Colunas: Nome, Preço, Tipo, Visibilidade (Hidden).
+
+Badge Manager: Visualização das badges de rank e missão.
+
+2. Nível de Administração (System Control)
+Foco: Segurança, Rbac, Auditoria e Saúde do Servidor.
+
+D. Global System Monitor (/admin/system)
+Finalidade: Monitorar o "Motor" (NestJS e BullMQ).
+
+Estrutura:
+
+Queue Health: Barras de progresso pesadas (estilo industrial) mostrando o estado das filas do BullMQ (Waiting, Active, Completed, Failed).
+
+Redis/PSQL Status: Indicadores de latência e conexões ativas.
+
+Kill Switch: Um botão vermelho maciço e proeminente para pausar todos os workers em caso de emergência.
+
+E. Ledger de Auditoria (/admin/ledger)
+Finalidade: A "caixa-preta" do sistema. Todo evento é registrado aqui.
+
+Estrutura:
+
+Log Stream: Uma lista infinita de logs técnicos. Cada linha é um evento encriptado que é decriptado apenas na visualização do admin.
+
+Detalhe do Log: Ao clicar, abre um modal de vidro com o diff old_value vs new_value do objeto alterado.
+
+F. RBAC & Security (/admin/rbac)
+Finalidade: Configurar a negação granulada e 2FA.
+
+Estrutura:
+
+Access Matrix: Uma tabela complexa onde você define o que cada cargo não pode fazer (Lógica Negativa).
+
+OTP Config: Gerenciamento de segredos de autenticação e recuperação de contas.
+
+3. Estrutura de Pastas (SvelteKit)
+Plaintext
+src/
+├── lib/
+│   ├── atoms/               # Botões brutalistas, Inputs de vidro
+│   ├── molecules/           # Cards TCA, Linhas do Ledger
+│   ├── organisms/           # Sidebar de navegação, Flow Builder
+│   ├── services/            # Camada de Abstração (BotService, AdminService)
+│   └── styles/              # Global CSS (Font: JetBrains Mono, Soviet Themes)
+├── routes/
+│   ├── (auth)/              # Login / 2FA / OTP
+│   ├── (mgmt)/              # BACKOFFICE GESTÃO
+│   │   ├── +layout.svelte   # Sidebar leve + Glass Effect
+│   │   ├── dashboard/
+│   │   └── automations/
+│   └── (sys_admin)/         # BACKOFFICE ADMINISTRAÇÃO
+│       ├── +layout.svelte   # UI Pesada, bordas 8px, cores de alerta
+│       ├── monitor/
+│       ├── audit-ledger/
+│       └── rbac/
+O Diferencial Visual: CSS das Bordas e Vidro
+Para aplicar em todos os componentes, você pode usar estas variáveis no seu app.css:
+
+CSS
+:root {
+  --soviet-border: 4px solid #000;
+  --soviet-shadow: 8px 8px 0px #000;
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+.brutal-card {
+  border: var(--soviet-border);
+  box-shadow: var(--soviet-shadow);
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  font-family: var(--font-mono);
+}
+Você quer que eu detalhe o código do componente de "Flow Builder" (Automations) usando essa estética brutalista?
+
+Disse
+não pra já eu so quero a ideia de como ele vai ficar no frontend, alem disso adcione paginas para comandos e etc.
+
+
+
+um ponto adcional, o discord tem uma gestão de slash commands muito ruim então não poderemos ter slash commands, se quisermos que eles sejam carregados dinâmicamente.
+
+
+
+alem disso crie a estrutura para uma pagina de gestão de events para o user criar event handlers no bot.
+
+O Gemini disse
+Entendido. O problema dos Slash Commands é real: o Discord tem um cache agressivo e o registro de comandos globais pode levar tempo, além de ter limites chatos para atualizações frequentes.
+
+Para uma framework dinâmica, voltaremos ao clássico Prefix Commands (Message Content), mas com uma roupagem moderna de "Custom Command Engine".
+
+Aqui está a estrutura de páginas atualizada com as novas seções de Comandos e Events, mantendo a estética Brutalista-Soviética + Glassmorfismo.
+
+1. Gestão de Comandos Dinâmicos (/dashboard/commands)
+Como não usaremos Slash Commands, o usuário define o prefixo e o nome do comando.
+
+A Interface: Imagine uma lista de "cartões postais" soviéticos. Cada cartão é um comando.
+
+Campos de Configuração:
+
+Prefix & Trigger: Ex: !warn, .rank.
+
+Argument Parser: O usuário define o que o bot deve esperar (ex: {user} {reason}).
+
+Logic Bridge: Um botão que conecta esse comando ao Flow Builder (TCA).
+
+Cooldown Glass Panel: Um seletor deslizante com efeito de vidro para definir o rate-limit por usuário ou servidor.
+
+2. Gestão de Event Handlers (/dashboard/events)
+Aqui é onde o usuário "assina" o que o bot deve ouvir. Para não matar o seu servidor, o usuário só ativa o que vai usar.
+
+A Interface: Um painel que lembra um comutador elétrico antigo. Cada evento do Discord é uma chave (toggle) física e robusta.
+
+Estrutura:
+
+Event Library: Categorias como Messages, Members, Voice, Channels.
+
+Active Handlers: Uma lista de eventos ativos. Ex: "Ao entrar novo membro" -> disparar "Boas-vindas".
+
+Debug Light: Um pequeno LED visual (CSS glow) em cada evento que pisca em verde quando o evento é disparado no Discord (via SSE).
+
+3. Páginas Adicionais (Estrutura Completa)
+G. Custom Embed Creator (/dashboard/embeds)
+Visual: Um editor "WYSIWYG" (What You See Is What You Get) com bordas pretas grossas.
+
+Funcionalidade: O usuário monta o JSON do Embed (Título, Cor, Imagem) e salva com um nome. Esse embed pode ser usado depois como uma Ação em qualquer Comando ou Evento.
+
+H. Variables & Database Management (/dashboard/database)
+Visual: Uma tabela de dados crua e funcional.
+
+Funcionalidade: Onde o usuário cria as variáveis que discutimos (ex: reputação, pontos_de_vida). Ele define o valor inicial e o tipo.
+
+Estrutura de Rotas Atualizada (Frontend)
+Plaintext
+src/routes/
+├── (mgmt)/
+│   ├── dashboard/           # Home com Stats & SSE Logs
+│   ├── commands/            # Lista e CRUD de comandos de mensagem
+│   │   ├── [id]/            # Editor de comando específico
+│   ├── events/              # Gestão de Event Handlers (OnJoin, OnMessage, etc)
+│   ├── flows/               # Visual Flow Builder (O cérebro TCA)
+│   ├── economy/             # Itens, Loja e Badges
+│   ├── database/            # Gestão de Variáveis Customizadas
+│   └── embeds/              # Criador de Templates de Mensagem
+├── (admin)/
+│   ├── system/              # Saúde do NestJS/BullMQ
+│   ├── ledger/              # Audit Logs globais
+│   └── rbac/                # Gestão de Negação Granular
+└── (auth)/                  # Login & 2FA (OTP)
+Por que essa estrutura resolve o seu problema?
+Independência do Discord API: Ao usar comandos de mensagem, você não precisa avisar ao Discord toda vez que o usuário mudar o nome de um comando. O seu Worker apenas checa se a mensagem começa com o que está no seu banco de dados.
+
+Modularidade de Eventos: Se o usuário não ativar o evento VoiceStateUpdate na página de eventos, seu bot nem processa essa informação no Worker, economizando CPU/Memória.
+
+Abstração de UI: O usuário sente que está programando, mas ele está apenas preenchendo formulários brutalistas que geram JSONB.
+
+Próximo Passo sugerido:
+Podemos focar agora na Lógica do Dispatcher. Como o seu NestJS vai receber uma mensagem do Discord, olhar no seu Postgres (via Drizzle) e decidir qual comando ou evento rodar sem criar um if/else infinito.
+
