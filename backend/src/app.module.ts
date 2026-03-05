@@ -6,6 +6,9 @@ import { MonitorModule } from './monitor/monitor.module';
 import { BullModule } from '@nestjs/bullmq';
 import { DbModule } from './db/db.module';
 import { RbacModule } from './rbac/rbac.module';
+import { UsersModule } from './users/users.module';
+import { ItemsModule } from './items/items.module';
+import { BadgesModule } from './badges/badges.module';
 
 @Module({
   imports: [
@@ -19,6 +22,9 @@ import { RbacModule } from './rbac/rbac.module';
     AutomationsModule,
     MonitorModule,
     RbacModule,
+    UsersModule,
+    ItemsModule,
+    BadgesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

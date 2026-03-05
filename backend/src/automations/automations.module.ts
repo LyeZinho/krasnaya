@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AutomationsService } from './automations.service';
 import { AutomationsProcessor } from './automations.processor';
+import { AutomationsController } from './automations.controller';
 import { BullModule } from '@nestjs/bullmq';
 
 @Module({
@@ -9,6 +10,7 @@ import { BullModule } from '@nestjs/bullmq';
             name: 'automations',
         }),
     ],
+    controllers: [AutomationsController],
     providers: [AutomationsService, AutomationsProcessor],
     exports: [AutomationsService],
 })
