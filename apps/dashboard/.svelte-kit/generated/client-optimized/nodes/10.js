@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/(mgmt)/cards/+page.svelte";

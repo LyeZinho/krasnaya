@@ -1,0 +1,8 @@
+
+> @krasnaya/database@1.0.0 build /home/pedro/repo/krasnaya/packages/database
+> tsc
+
+src/db.module.ts(1,32): error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+src/redis.module.ts(1,32): error TS2307: Cannot find module '@nestjs/common' or its corresponding type declarations.
+src/redis.module.ts(2,23): error TS2307: Cannot find module 'ioredis' or its corresponding type declarations.
+ ELIFECYCLE  Command failed with exit code 2.

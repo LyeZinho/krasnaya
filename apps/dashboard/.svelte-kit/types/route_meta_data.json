@@ -1,0 +1,25 @@
+{
+	"/(mgmt)": [],
+	"/(auth)": [],
+	"/(admin)": [],
+	"/": [],
+	"/(mgmt)/cards": [],
+	"/(mgmt)/commands": [],
+	"/(mgmt)/commands/[id]": [
+		"src/routes/(mgmt)/commands/[id]/+page.ts"
+	],
+	"/(mgmt)/dashboard": [],
+	"/(mgmt)/database": [],
+	"/(mgmt)/economy": [],
+	"/(mgmt)/embeds": [],
+	"/(mgmt)/events": [],
+	"/(mgmt)/flows": [],
+	"/(mgmt)/flows/[id]": [
+		"src/routes/(mgmt)/flows/[id]/+page.ts"
+	],
+	"/(admin)/ledger": [],
+	"/(auth)/login": [],
+	"/(mgmt)/modules": [],
+	"/(admin)/rbac": [],
+	"/(admin)/system": []
+}

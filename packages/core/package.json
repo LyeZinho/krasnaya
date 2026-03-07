@@ -1,0 +1,21 @@
+{
+    "name": "@krasnaya/core",
+    "version": "1.0.0",
+    "main": "src/index.ts",
+    "types": "src/index.ts",
+    "scripts": {
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@krasnaya/database": "workspace:*",
+        "json-logic-js": "^2.0.5",
+        "lodash": "^4.17.23",
+        "zod": "latest"
+    },
+    "devDependencies": {
+        "@types/json-logic-js": "^2.0.8",
+        "@types/lodash": "^4.17.24",
+        "typescript": "^5.3.3"
+    }
+}

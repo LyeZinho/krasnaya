@@ -1,0 +1,7 @@
+
+> @krasnaya/bot-discord@1.0.0 build /home/pedro/repo/krasnaya/apps/bot-discord
+> tsc
+
+src/discord-adapter.ts(2,49): error TS2307: Cannot find module '@krasnaya/core' or its corresponding type declarations.
+src/main.ts(5,26): error TS2307: Cannot find module '@krasnaya/core' or its corresponding type declarations.
+ ELIFECYCLE  Command failed with exit code 2.

@@ -1,0 +1,55 @@
+
+> @krasnaya/dashboard@0.0.1 build /home/pedro/repo/krasnaya/apps/dashboard
+> vite build
+
+vite v7.3.1 building ssr environment for production...
+transforming...
+20:27:15 [vite-plugin-svelte] src/routes/(mgmt)/flows/+page.svelte:172:4 Unused CSS selector "textarea"
+https://svelte.dev/e/css_unused_selector
+170: 
+171: <style>
+172:     textarea {
+                 ^
+173:         scrollbar-width: thin;
+174:         scrollbar-color: #333 transparent;
+20:27:15 [vite-plugin-svelte] src/routes/(mgmt)/modules/+page.svelte:245:16 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+243:             >
+244:                 <!-- Status Bar -->
+245:                 <div
+                       ^
+246:                     class="absolute top-0 left-0 w-full h-1 {mod.enabled
+247:                         ? 'bg-emerald-500'
+20:27:15 [vite-plugin-svelte] src/routes/(mgmt)/modules/+page.svelte:262:24 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+260:                             : 'bg-red-600'}"
+261:                     >
+262:                         <div
+                               ^
+263:                             class="absolute top-0 w-5 h-full bg-white border-2 border-black transition-all {mod.enabled
+264:                                 ? 'left-full -translate-x-full'
+20:27:15 [vite-plugin-svelte] src/routes/(mgmt)/modules/+page.svelte:324:24 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+322:                     </div>
+323:                     <div class="w-full h-1 bg-black">
+324:                         <div
+                               ^
+325:                             class="h-full bg-red-600"
+326:                             style="width: {Math.random() * 100}%"
+20:27:15 [vite-plugin-svelte] src/lib/atoms/Card.svelte:9:4 Self-closing HTML tags for non-void elements are ambiguous — use `<div ...></div>` rather than `<div ... />`
+https://svelte.dev/e/element_invalid_self_closing_tag
+ 7:   <header class="card-header">
+ 8:     <h3>{title}</h3>
+ 9:     <div class="status-indicator {status}" />
+                                                 ^
+10:   </header>
+11:   <main class="card-content">
+20:27:15 [vite-plugin-svelte] src/lib/atoms/FormGroup.svelte:8:4 A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control
+ 6: <div class="form-group">
+ 7:   {#if label}
+ 8:     <label class="form-label">{label}</label>
+                                                 ^
+ 9:   {/if}
+10:   <div class="form-control">
+ ELIFECYCLE  Command failed.

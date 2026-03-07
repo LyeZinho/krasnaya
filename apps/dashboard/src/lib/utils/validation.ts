@@ -25,10 +25,17 @@ export function validateJSON(jsonString: string): ValidationError[] {
 
 export function validateAutomation(data: any): ValidationError[] {
   const errors: ValidationError[] = [];
-  if (!data.name || data.name.trim() === '') {
+  
+  // Type safety checks
+  if (!data || typeof data !== 'object') {
+    errors.push({ field: 'root', message: 'Dados inválidos: não é um objeto' });
+    return errors;
+  }
+  
+  if (!data.name || (typeof data.name === 'string' && data.name.trim() === '')) {
     errors.push({ field: 'name', message: 'Nome é obrigatório' });
   }
-  if (!data.trigger || !data.trigger.type) {
+  if (!data.trigger || typeof data.trigger !== 'object' || !data.trigger.type) {
     errors.push({ field: 'trigger', message: 'Tipo de gatilho é obrigatório' });
   }
   if (!Array.isArray(data.actions) || data.actions.length === 0) {
@@ -39,14 +46,18 @@ export function validateAutomation(data: any): ValidationError[] {
 
 export function validateCommand(data: any): ValidationError[] {
   const errors: ValidationError[] = [];
-  if (!data.name || data.name.trim() === '') {
+  
+  // Type safety checks
+  if (!data || typeof data !== 'object') {
+    errors.push({ field: 'root', message: 'Dados inválidos: não é um objeto' });
+    return errors;
+  }
+  
+  if (!data.name || (typeof data.name === 'string' && data.name.trim() === '')) {
     errors.push({ field: 'name', message: 'Nome é obrigatório' });
   }
-  if (!data.prefix || data.prefix.trim() === '') {
+  if (!data.prefix || (typeof data.prefix === 'string' && data.prefix.trim() === '')) {
     errors.push({ field: 'prefix', message: 'Prefixo é obrigatório' });
-  }
-  if (!Array.isArray(data.actions) || data.actions.length === 0) {
-    errors.push({ field: 'actions', message: 'Pelo menos uma ação é obrigatória' });
   }
   return errors;
 }

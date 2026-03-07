@@ -38,6 +38,7 @@ export interface Command {
   enabled: boolean;
   cooldown: number; // em ms
   automationId?: string;
+  logic?: Record<string, any>;
   createdAt: number;
 }
 
