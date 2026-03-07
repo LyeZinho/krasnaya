@@ -4,6 +4,7 @@
     import BrutalCard from "$lib/components/ui/BrutalCard.svelte";
     import BrutalButton from "$lib/components/ui/BrutalButton.svelte";
     import BrutalModal from "$lib/components/ui/BrutalModal.svelte";
+    import FlowBuilder from '$lib/components/flow-builder/FlowBuilder.svelte';
     import { CommandService } from "$lib/services";
     import { toastStore } from "$lib/stores/toast";
     import type { Command } from "$lib/types";
@@ -15,8 +16,9 @@
 
     let command = { ...data.command };
     let originalCommand = JSON.parse(JSON.stringify(data.command));
-    let mode: "visual" | "json" = "visual";
+    let mode: "visual" | "json" | "flow" = "visual";
     let jsonContent = JSON.stringify(command, null, 2);
+    let jsonData = JSON.stringify(command, null, 2);
     let jsonErrors: { line?: number; message: string }[] = [];
     
     let isSaving = false;
@@ -178,6 +180,15 @@
                 {#if mode === "visual"}<Code size={16} />{:else}<Layout size={16} />{/if}
             </button>
             <button
+                onclick={() => (mode = 'flow')}
+                class="px-6 py-3 border-4 border-black font-black uppercase text-xs flex items-center gap-2 transition-all {mode === 'flow'
+                    ? 'bg-white text-black translate-x-1 shadow-[4px_4px_0px_#000]'
+                    : 'bg-black text-white'}"
+            >
+                Construtor Visual
+                <Layout size={16} />
+            </button>
+            <button
                 onclick={saveCommand}
                 disabled={isSaving || !hasUnsavedChanges}
                 class="px-6 py-3 border-4 border-green-600 bg-green-900/30 text-green-400 font-black uppercase text-xs flex items-center gap-2 transition-all disabled:opacity-50"
@@ -336,6 +347,14 @@
                 />
             </BrutalCard>
         </div>
+    {:else if mode === "flow"}
+        <FlowBuilder
+            resourceType="command"
+            onJsonOutput={(json) => {
+                jsonData = JSON.stringify(json, null, 2);
+                mode = 'json';
+            }}
+        />
     {:else}
         <BrutalCard title="JSON Editor">
             <textarea
