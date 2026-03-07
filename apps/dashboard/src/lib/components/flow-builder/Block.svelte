@@ -21,6 +21,14 @@
 			e.dataTransfer.setData('blockId', block.id);
 		}
 	}}
+	role="button"
+	tabindex="0"
+	aria-label="Block {block.label} of type {block.type}"
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			onSelect(block.id);
+		}
+	}}
 >
 	<div class="flex items-start justify-between gap-1">
 		<div class="flex-1">
