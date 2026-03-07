@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { toastStore } from '$lib/stores/toast';
 	import { fly } from 'svelte/transition';
+	import { onDestroy } from 'svelte';
 
 	// Type definitions
 	type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -20,18 +21,31 @@
 		warning: 'bg-yellow-500',
 		info: 'bg-blue-600',
 	};
+
+	// Explicitly unsubscribe from toast store
+	const unsubscribe = toastStore.subscribe(() => {});
+	
+	onDestroy(() => {
+		unsubscribe();
+	});
 </script>
 
 <!-- Toast Container - fixed position top-right with high z-index -->
-<div class="fixed top-4 right-4 z-50 flex flex-col space-y-2">
+<div
+	role="region"
+	aria-label="Notifications"
+	aria-live="polite"
+	aria-atomic="false"
+	class="fixed top-4 right-4 z-50 flex flex-col space-y-2"
+>
 	{#each $toastStore as toast (toast.id)}
 		<div
-			class="flex items-center gap-3 px-4 py-3 {colorMap[toast.type as ToastType]} text-white border-2 border-black font-mono text-sm rounded"
+			class="flex items-center gap-3 px-4 py-3 {colorMap[toast.type]} text-white border-2 border-black font-mono text-sm rounded will-change-transform"
 			transition:fly={{ x: 400, duration: 300 }}
 		>
 			<!-- Icon -->
 			<span class="flex-shrink-0 text-lg">
-				{iconMap[toast.type as ToastType]}
+				{iconMap[toast.type]}
 			</span>
 
 			<!-- Message -->
@@ -45,7 +59,7 @@
 					type="button"
 					on:click={() => toastStore.remove(toast.id)}
 					class="flex-shrink-0 text-white hover:opacity-75 transition-opacity"
-					aria-label="Dismiss notification"
+					aria-label="Dismiss notification: {toast.message}"
 				>
 					✕
 				</button>
@@ -56,7 +70,7 @@
 
 <style>
 	/* Ensure smooth transitions for toast animations */
-	:global(.fixed.top-4.right-4 > div) {
+	:global(.will-change-transform) {
 		will-change: transform;
 	}
 </style>

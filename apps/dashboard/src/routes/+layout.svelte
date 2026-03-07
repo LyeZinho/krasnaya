@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Sidebar from "$lib/components/layout/Sidebar.svelte";
 	import ToastContainer from "$lib/components/ui/ToastContainer.svelte";
-	import NotificationToast from "$lib/molecules/NotificationToast.svelte";
 	import { currentGuild } from "$lib/stores/guild";
 	import { user } from "$lib/stores/user";
 	import { onMount } from "svelte";
@@ -10,25 +9,26 @@
 
 	onMount(() => {
 		// Initialize with a default test user and guild for development
-		user.setUser({
-			id: "test-user-1",
-			username: "Test User",
-			email: "test@example.com",
-			avatar: "https://example.com/avatar.png",
-			has2FA: false,
-			role: "admin",
-		});
-		
-		currentGuild.setGuild({
-			id: "test-guild-1",
-			name: "Test Guild",
-			ownerId: "test-owner",
-		});
+		if (import.meta.env.DEV) {
+			user.setUser({
+				id: "test-user-1",
+				username: "Test User",
+				email: "test@example.com",
+				avatar: "https://example.com/avatar.png",
+				has2FA: false,
+				role: "admin",
+			});
+			
+			currentGuild.setGuild({
+				id: "test-guild-1",
+				name: "Test Guild",
+				ownerId: "test-owner",
+			});
+		}
 	});
 </script>
 
 <ToastContainer />
-<NotificationToast position="top-right" />
 <div class="flex h-screen bg-[#1a1a1a] text-white">
 	<Sidebar />
 	<main class="flex-1 overflow-y-auto p-8 relative">
