@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Sidebar from "$lib/components/layout/Sidebar.svelte";
+	import ToastContainer from "$lib/components/ui/ToastContainer.svelte";
 	import NotificationToast from "$lib/molecules/NotificationToast.svelte";
 	import { currentGuild } from "$lib/stores/guild";
 	import { user } from "$lib/stores/user";
@@ -26,6 +27,7 @@
 	});
 </script>
 
+<ToastContainer />
 <NotificationToast position="top-right" />
 <div class="flex h-screen bg-[#1a1a1a] text-white">
 	<Sidebar />
