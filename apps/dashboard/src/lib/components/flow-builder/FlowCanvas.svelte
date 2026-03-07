@@ -2,7 +2,6 @@
 	import { flowStore, type FlowBlock } from '$lib/stores/flow';
 	import Block from './Block.svelte';
 
-	export let resourceType: 'automation' | 'command';
 	export let onAddBlock: (blockType: string, position: { x: number; y: number }) => void;
 	export let onDeleteBlock: (id: string) => void;
 	export let onEditBlock: (id: string) => void;
@@ -11,11 +10,26 @@
 	let isDraggingCanvas = false;
 	let dragStartX = 0;
 	let dragStartY = 0;
+	let spacePressed = false;
 
 	$: state = $flowStore;
 
+	function handleKeyDown(e: KeyboardEvent) {
+		if (e.code === 'Space') {
+			spacePressed = true;
+			e.preventDefault();
+		}
+	}
+
+	function handleKeyUp(e: KeyboardEvent) {
+		if (e.code === 'Space') {
+			spacePressed = false;
+			e.preventDefault();
+		}
+	}
+
 	function handleCanvasMouseDown(e: MouseEvent) {
-		if (e.button !== 1 && !(e.button === 0 && (e as any).spaceKey)) return; // Middle mouse or Space+Left
+		if (e.button !== 1 && !(e.button === 0 && spacePressed)) return; // Middle mouse or Space+Left
 		isDraggingCanvas = true;
 		dragStartX = e.clientX;
 		dragStartY = e.clientY;
@@ -76,6 +90,10 @@
 	onwheel={handleWheel}
 	ondrop={handleCanvasDrop}
 	ondragover={handleCanvasDragOver}
+	onkeydown={handleKeyDown}
+	onkeyup={handleKeyUp}
+	role="region"
+	aria-label="Canvas area for flow editor"
 >
 	<!-- Grid background -->
 	<svg class="absolute inset-0 w-full h-full pointer-events-none" style="opacity: 0.1">
