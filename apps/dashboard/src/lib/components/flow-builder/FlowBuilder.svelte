@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { flowStore } from '$lib/stores/flow';
+	import { flowStore, type FlowBlock } from '$lib/stores/flow';
 	import FlowCanvas from './FlowCanvas.svelte';
 	import BlockPalette from './BlockPalette.svelte';
 	import FlowToolbar from './FlowToolbar.svelte';
@@ -10,7 +10,7 @@
 
 	let selectedBlockId: string | null = null;
 	let showBlockModal = false;
-	let editingBlock: any = null;
+	let editingBlock: FlowBlock | null = null;
 
 	function handleAddBlock(blockType: string, position: { x: number; y: number }) {
 		const blockTypeToType = (blockType: string): 'TRIGGER' | 'ACTION' | 'CONDITION' | 'END' => {
@@ -61,7 +61,6 @@
 		<FlowToolbar {resourceType} onConvertToJSON={handleConvertToJSON} />
 
 		<FlowCanvas
-			{resourceType}
 			onAddBlock={handleAddBlock}
 			onDeleteBlock={handleDeleteBlock}
 			onEditBlock={handleEditBlock}
