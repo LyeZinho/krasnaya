@@ -4,6 +4,7 @@
     import BrutalButton from "$lib/components/ui/BrutalButton.svelte";
     import BrutalModal from "$lib/components/ui/BrutalModal.svelte";
     import { AutomationService } from "$lib/services";
+    import { toastStore } from "$lib/stores/toast";
     import type { Automation } from "$lib/types";
     import { Trash2, Save, Code, Layout, ArrowLeft } from "lucide-svelte";
     import type { PageData } from './$types';
@@ -12,7 +13,7 @@
 
     let automation = { ...data.automation };
     let originalAutomation = JSON.parse(JSON.stringify(data.automation));
-    let viewMode: "visual" | "json" = "visual";
+    let mode: "visual" | "json" = "visual";
     let jsonContent = JSON.stringify(automation, null, 2);
     
     let isSaving = false;
@@ -47,11 +48,12 @@
             isSaving = true;
             error = null;
             await AutomationService.updateAutomation(automation.id, automation);
-            successMessage = "Automação atualizada com sucesso!";
+            toastStore.add('Automação salva com sucesso!', 'success');
             originalAutomation = JSON.parse(JSON.stringify(automation));
             setTimeout(() => goto("/flows"), 1500);
         } catch (err) {
-            error = err instanceof Error ? err.message : "Erro ao salvar";
+            const message = err instanceof Error ? err.message : "Erro ao salvar";
+            toastStore.add('Erro ao salvar: ' + message, 'error');
         } finally {
             isSaving = false;
         }
@@ -61,10 +63,11 @@
         try {
             isDeleting = true;
             await AutomationService.deleteAutomation(automation.id);
-            successMessage = "Automação deletada!";
+            toastStore.add('Automação deletada com sucesso', 'success');
             setTimeout(() => goto("/flows"), 1000);
         } catch (err) {
-            error = err instanceof Error ? err.message : "Erro ao deletar";
+            const message = err instanceof Error ? err.message : "Erro ao deletar";
+            toastStore.add('Erro ao deletar: ' + message, 'error');
         } finally {
             isDeleting = false;
             showDeleteModal = false;
@@ -72,14 +75,31 @@
     }
 
     function goBack() {
-        if (hasUnsavedChanges && !confirm("Há mudanças não salvas. Tem certeza?")) {
-            return;
+        if (hasUnsavedChanges) {
+            toastStore.add('Mudanças não salvas', 'warning');
+            if (!confirm("Há mudanças não salvas. Tem certeza?")) {
+                return;
+            }
         }
         goto("/flows");
     }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+            event.preventDefault();
+            saveAutomation();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'j') {
+            event.preventDefault();
+            mode = mode === 'json' ? 'visual' : 'json';
+        }
+        if (event.key === 'Escape' && showDeleteModal) {
+            showDeleteModal = false;
+        }
+    }
 </script>
 
-<div class="space-y-8">
+<div class="space-y-8" onkeydown={handleKeydown}>
     <header class="flex justify-between items-end border-b-4 border-black pb-6">
         <div class="flex items-center gap-4">
             <button
@@ -100,13 +120,13 @@
         </div>
         <div class="flex gap-4">
             <button
-                onclick={() => (viewMode = viewMode === "visual" ? "json" : "visual")}
-                class="px-6 py-3 border-4 border-black font-black uppercase text-xs flex items-center gap-2 transition-all {viewMode === 'json'
+                onclick={() => (mode = mode === "visual" ? "json" : "visual")}
+                class="px-6 py-3 border-4 border-black font-black uppercase text-xs flex items-center gap-2 transition-all {mode === 'json'
                     ? 'bg-white text-black translate-x-1 shadow-[4px_4px_0px_#000]'
                     : 'bg-black text-white'}"
             >
-                {viewMode === "visual" ? "JSON Mode" : "Visual Mode"}
-                {#if viewMode === "visual"}<Code size={16} />{:else}<Layout size={16} />{/if}
+                {mode === "visual" ? "JSON Mode" : "Visual Mode"}
+                {#if mode === "visual"}<Code size={16} />{:else}<Layout size={16} />{/if}
             </button>
             <button
                 onclick={saveAutomation}
@@ -140,7 +160,7 @@
         </div>
     {/if}
 
-    {#if viewMode === "visual"}
+    {#if mode === "visual"}
         <div class="space-y-6">
             <BrutalCard title="Propriedades da Automação">
                 <div class="space-y-4">
