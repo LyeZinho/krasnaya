@@ -54,22 +54,27 @@
 	}
 </script>
 
-<div class="w-48 bg-gray-100 border-r-2 border-black p-3 overflow-y-auto font-mono text-sm">
+<div class="w-48 bg-gray-100 border-r-2 border-black p-3 overflow-y-auto font-mono text-sm"
+	role="region"
+	aria-label="Available block palette">
 	<h3 class="font-bold mb-3">Blocos Disponíveis</h3>
 
 	{#each [...new Set(options.map((o) => o.category))] as category}
 		<div class="mb-4">
 			<h4 class="font-bold text-xs uppercase text-gray-600 mb-2">{category}</h4>
 			<div class="space-y-2">
-				{#each options.filter((o) => o.category === category) as option}
-					<div
-						class="p-2 bg-white border-2 border-black cursor-move hover:bg-blue-50 transition-colors"
-						draggable="true"
-						ondragstart={(e) => handleDragStart(e, option.blockType)}
-					>
-						{option.label}
-					</div>
-				{/each}
+			{#each options.filter((o) => o.category === category) as option}
+				<div
+					class="p-2 bg-white border-2 border-black cursor-move hover:bg-blue-50 transition-colors"
+					draggable="true"
+					ondragstart={(e) => handleDragStart(e, option.blockType)}
+					role="button"
+					tabindex="0"
+					aria-label="Add {option.label} block"
+				>
+					{option.label}
+				</div>
+			{/each}
 			</div>
 		</div>
 	{/each}
