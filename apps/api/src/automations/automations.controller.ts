@@ -28,11 +28,7 @@ async list(@Query('guildId') guildId: string) {
         const result = await this.db.query.automations.findMany({
             where: eq(schema.automations.guildId, guildId),
         });
-        return {
-            statusCode: HttpStatus.OK,
-            data: result,
-            message: 'Automations fetched successfully',
-        };
+        return result;
     } catch (error) {
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -53,10 +49,7 @@ async getOne(@Param('id') id: string) {
             throw new HttpException('Automation not found', HttpStatus.NOT_FOUND);
         }
 
-        return {
-            statusCode: HttpStatus.OK,
-            data: result,
-        };
+        return result;
     } catch (error) {
         if (error instanceof HttpException) throw error;
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -94,11 +87,7 @@ async create(@Body() payload: any) {
 
         await this.db.insert(schema.automations).values(newAutomation);
 
-        return {
-            statusCode: HttpStatus.CREATED,
-            data: newAutomation,
-            message: 'Automation created successfully',
-        };
+        return newAutomation;
     } catch (error) {
         if (error instanceof HttpException) throw error;
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -143,11 +132,7 @@ async update(@Param('id') id: string, @Body() payload: any) {
             where: eq(schema.automations.id, id),
         });
 
-        return {
-            statusCode: HttpStatus.OK,
-            data: updated,
-            message: 'Automation updated successfully',
-        };
+        return updated;
     } catch (error) {
         if (error instanceof HttpException) throw error;
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -172,10 +157,7 @@ async delete (@Param('id') id: string) {
 
         await this.db.delete(schema.automations).where(eq(schema.automations.id, id));
 
-        return {
-            statusCode: HttpStatus.OK,
-            message: 'Automation deleted successfully',
-        };
+        return { message: 'Automation deleted successfully' };
     } catch (error) {
         if (error instanceof HttpException) throw error;
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -200,10 +182,7 @@ async test(@Param('id') id: string, @Body() payload: any) {
         // Dispatch to BullMQ for testing
         await this.automationsService.dispatchAutomation(id, payload.eventData || {});
 
-        return {
-            statusCode: HttpStatus.OK,
-            message: 'Test job queued successfully',
-        };
+        return { message: 'Test job queued successfully' };
     } catch (error) {
         if (error instanceof HttpException) throw error;
         throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
