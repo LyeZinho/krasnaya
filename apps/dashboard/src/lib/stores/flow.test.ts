@@ -256,6 +256,108 @@ describe('Flow Translator', () => {
 		expect(getActionLabel('UNKNOWN')).toBe('UNKNOWN');
 	});
 
+	it('blocksToActions should traverse conditional branches in IF blocks', () => {
+		const blocks: FlowBlock[] = [
+			{
+				id: 'trigger-1',
+				type: 'TRIGGER',
+				blockType: 'MESSAGE_CREATE',
+				label: 'Nova Mensagem',
+				config: {},
+				position: { x: 0, y: 0 },
+				connections: { outputs: ['condition-1'] }
+			},
+			{
+				id: 'condition-1',
+				type: 'CONDITION',
+				blockType: 'IF',
+				label: 'Se',
+				config: { expression: 'message.length > 10' },
+				position: { x: 100, y: 100 },
+				connections: {
+					input: 'trigger-1',
+					outputs: [],
+					conditionBranches: {
+						true: ['action-true'],
+						false: ['action-false']
+					}
+				}
+			},
+			{
+				id: 'action-true',
+				type: 'ACTION',
+				blockType: 'SEND_MESSAGE',
+				label: 'Enviar Mensagem (True)',
+				config: { message: 'Message is long' },
+				position: { x: 200, y: 50 },
+				connections: { input: 'condition-1', outputs: [] }
+			},
+			{
+				id: 'action-false',
+				type: 'ACTION',
+				blockType: 'SEND_MESSAGE',
+				label: 'Enviar Mensagem (False)',
+				config: { message: 'Message is short' },
+				position: { x: 200, y: 150 },
+				connections: { input: 'condition-1', outputs: [] }
+			}
+		];
+
+		const actions = blocksToActions(blocks, 'trigger-1');
+
+		// Should contain both true and false branch actions
+		expect(actions).toHaveLength(2);
+		expect(actions).toContainEqual({
+			type: 'SEND_MESSAGE',
+			config: { message: 'Message is long' }
+		});
+		expect(actions).toContainEqual({
+			type: 'SEND_MESSAGE',
+			config: { message: 'Message is short' }
+		});
+	});
+
+	it('blocksToActions should detect circular references', () => {
+		const blocks: FlowBlock[] = [
+			{
+				id: 'trigger-1',
+				type: 'TRIGGER',
+				blockType: 'MESSAGE_CREATE',
+				label: 'Nova Mensagem',
+				config: {},
+				position: { x: 0, y: 0 },
+				connections: { outputs: ['action-1'] }
+			},
+			{
+				id: 'action-1',
+				type: 'ACTION',
+				blockType: 'SEND_MESSAGE',
+				label: 'Enviar Mensagem',
+				config: { message: 'Hello' },
+				position: { x: 100, y: 100 },
+				connections: { input: 'trigger-1', outputs: ['action-1'] } // Circular reference
+			}
+		];
+
+		expect(() => blocksToActions(blocks, 'trigger-1')).toThrow('Referência circular');
+	});
+
+	it('blocksToActions should validate that referenced blocks exist', () => {
+		const blocks: FlowBlock[] = [
+			{
+				id: 'trigger-1',
+				type: 'TRIGGER',
+				blockType: 'MESSAGE_CREATE',
+				label: 'Nova Mensagem',
+				config: {},
+				position: { x: 0, y: 0 },
+				connections: { outputs: ['action-nonexistent'] } // References non-existent block
+			}
+		];
+
+		expect(() => blocksToActions(blocks, 'trigger-1')).toThrow('referencia saída inexistente');
+	});
+
 	it('blocksToActions should traverse block graph and extract actions', () => {
 		const blocks: FlowBlock[] = [
 			{

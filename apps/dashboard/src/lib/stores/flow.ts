@@ -17,12 +17,14 @@ export type ActionBlockType =
 	| 'KICK_USER'
 	| 'BAN_USER';
 
+export type BlockConfig = Record<string, string | number | boolean | string[] | number[] | null | undefined>;
+
 export interface FlowBlock {
 	id: string;
 	type: BlockType;
 	blockType: string; // TriggerBlockType | ActionBlockType | 'IF' | 'END'
 	label: string;
-	config: Record<string, any>;
+	config: BlockConfig;
 	position: { x: number; y: number };
 	connections: {
 		input?: string;
