@@ -7,6 +7,7 @@
     import { toastStore } from "$lib/stores/toast";
     import type { Automation } from "$lib/types";
     import { Trash2, Save, Code, Layout, ArrowLeft } from "lucide-svelte";
+    import { validateJSON, validateAutomation } from '$lib/utils/validation';
     import type { PageData } from './$types';
 
     export let data: PageData;
@@ -15,6 +16,7 @@
     let originalAutomation = JSON.parse(JSON.stringify(data.automation));
     let mode: "visual" | "json" = "visual";
     let jsonContent = JSON.stringify(automation, null, 2);
+    let jsonErrors: { line?: number; message: string }[] = [];
     
     let isSaving = false;
     let isDeleting = false;
@@ -23,6 +25,16 @@
     let successMessage: string | null = null;
 
     $: hasUnsavedChanges = JSON.stringify(automation) !== JSON.stringify(originalAutomation);
+
+    let jsonValidationTimeout: NodeJS.Timeout;
+    function handleJsonChange(value: string) {
+        jsonContent = value;
+        clearTimeout(jsonValidationTimeout);
+        jsonValidationTimeout = setTimeout(() => {
+            const errors = validateJSON(value);
+            jsonErrors = errors.map((e) => ({ line: e.line, message: e.message }));
+        }, 300);
+    }
 
     function syncVisualToJson() {
         jsonContent = JSON.stringify(automation, null, 2);
@@ -39,6 +51,19 @@
     }
 
     async function saveAutomation() {
+        try {
+            const parsed = JSON.parse(jsonContent);
+            const validationErrors = validateAutomation(parsed);
+            if (validationErrors.length > 0) {
+                toastStore.add('Verifique os erros antes de salvar', 'warning');
+                return;
+            }
+            automation = parsed;
+        } catch (err) {
+            error = `JSON inválido: ${(err as Error).message}`;
+            return;
+        }
+
         if (!automation.name) {
             error = "Nome é obrigatório";
             return;
@@ -255,11 +280,19 @@
             <textarea
                 value={jsonContent}
                 onchange={(e) => {
-                    jsonContent = e.currentTarget.value;
+                    handleJsonChange(e.currentTarget.value);
                     syncJsonToVisual();
                 }}
+                oninput={(e) => handleJsonChange(e.currentTarget.value)}
                 class="w-full border-2 border-black p-3 bg-[#0a0a0a] text-white font-mono text-sm min-h-[500px] focus:outline-none focus:bg-gray-900"
             />
+            {#if jsonErrors.length > 0}
+                <div class="mt-2 p-2 bg-red-100 border-2 border-red-600 text-red-800 text-sm font-mono">
+                    {#each jsonErrors as error}
+                        <div>Linha {error.line}: {error.message}</div>
+                    {/each}
+                </div>
+            {/if}
         </BrutalCard>
     {/if}
 </div>
