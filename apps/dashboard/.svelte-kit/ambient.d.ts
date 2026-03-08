@@ -50,14 +50,16 @@ declare module '$env/static/private' {
 	export const npm_config_cache: string;
 	export const XDG_SESSION_PATH: string;
 	export const XDG_MENU_PREFIX: string;
+	export const npm_config_npm_globalconfig: string;
 	export const ICEAUTHORITY: string;
 	export const LANGUAGE: string;
 	export const NODE: string;
 	export const LC_ADDRESS: string;
 	export const LC_NAME: string;
 	export const SSH_AUTH_SOCK: string;
+	export const npm_config_verify_deps_before_run: string;
+	export const npm_config__jsr_registry: string;
 	export const SHELL_SESSION_ID: string;
-	export const AGENT: string;
 	export const MEMORY_PRESSURE_WRITE: string;
 	export const COLOR: string;
 	export const npm_config_local_prefix: string;
@@ -75,11 +77,10 @@ declare module '$env/static/private' {
 	export const npm_config_init_module: string;
 	export const SYSTEMD_EXEC_PID: string;
 	export const XAUTHORITY: string;
+	export const npm_config_recursive: string;
 	export const MOTD_SHOWN: string;
 	export const GTK2_RC_FILES: string;
-	export const OPENCODE_PID: string;
 	export const HOME: string;
-	export const OPENCODE: string;
 	export const LC_PAPER: string;
 	export const LANG: string;
 	export const _JAVA_AWT_WM_NONREPARENTING: string;
@@ -91,9 +92,11 @@ declare module '$env/static/private' {
 	export const KONSOLE_DBUS_SESSION: string;
 	export const PROFILEHOME: string;
 	export const VIRTUAL_ENV_DISABLE_PROMPT: string;
+	export const FORCE_COLOR: string;
 	export const MANROFFOPT: string;
 	export const XDG_SEAT_PATH: string;
 	export const INVOCATION_ID: string;
+	export const pnpm_config_verify_deps_before_run: string;
 	export const KONSOLE_VERSION: string;
 	export const MANAGERPID: string;
 	export const INIT_CWD: string;
@@ -108,6 +111,7 @@ declare module '$env/static/private' {
 	export const KONSOLE_DBUS_ACTIVATION_COOKIE: string;
 	export const npm_config_prefix: string;
 	export const USER: string;
+	export const npm_config_frozen_lockfile: string;
 	export const COLORFGBG: string;
 	export const QT_WAYLAND_RECONNECT: string;
 	export const KDE_SESSION_VERSION: string;
@@ -123,6 +127,7 @@ declare module '$env/static/private' {
 	export const MANAGERPIDFDID: string;
 	export const npm_config_user_agent: string;
 	export const CUDA_DISABLE_PERF_BOOST: string;
+	export const PNPM_SCRIPT_SRC_DIR: string;
 	export const npm_execpath: string;
 	export const XDG_RUNTIME_DIR: string;
 	export const NODE_PATH: string;
@@ -133,17 +138,17 @@ declare module '$env/static/private' {
 	export const JOURNAL_STREAM: string;
 	export const XDG_DATA_DIRS: string;
 	export const KDE_FULL_SESSION: string;
-	export const npm_config_noproxy: string;
 	export const PATH: string;
 	export const npm_config_node_gyp: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
 	export const npm_config_global_prefix: string;
 	export const KDE_APPLICATIONS_AS_SCOPE: string;
 	export const MAIL: string;
+	export const npm_config_registry: string;
 	export const npm_node_execpath: string;
 	export const LC_NUMERIC: string;
-	export const OLDPWD: string;
 	export const KONSOLE_DBUS_WINDOW: string;
+	export const NODE_ENV: string;
 }
 
 /**
@@ -242,14 +247,16 @@ declare module '$env/dynamic/private' {
 		npm_config_cache: string;
 		XDG_SESSION_PATH: string;
 		XDG_MENU_PREFIX: string;
+		npm_config_npm_globalconfig: string;
 		ICEAUTHORITY: string;
 		LANGUAGE: string;
 		NODE: string;
 		LC_ADDRESS: string;
 		LC_NAME: string;
 		SSH_AUTH_SOCK: string;
+		npm_config_verify_deps_before_run: string;
+		npm_config__jsr_registry: string;
 		SHELL_SESSION_ID: string;
-		AGENT: string;
 		MEMORY_PRESSURE_WRITE: string;
 		COLOR: string;
 		npm_config_local_prefix: string;
@@ -267,11 +274,10 @@ declare module '$env/dynamic/private' {
 		npm_config_init_module: string;
 		SYSTEMD_EXEC_PID: string;
 		XAUTHORITY: string;
+		npm_config_recursive: string;
 		MOTD_SHOWN: string;
 		GTK2_RC_FILES: string;
-		OPENCODE_PID: string;
 		HOME: string;
-		OPENCODE: string;
 		LC_PAPER: string;
 		LANG: string;
 		_JAVA_AWT_WM_NONREPARENTING: string;
@@ -283,9 +289,11 @@ declare module '$env/dynamic/private' {
 		KONSOLE_DBUS_SESSION: string;
 		PROFILEHOME: string;
 		VIRTUAL_ENV_DISABLE_PROMPT: string;
+		FORCE_COLOR: string;
 		MANROFFOPT: string;
 		XDG_SEAT_PATH: string;
 		INVOCATION_ID: string;
+		pnpm_config_verify_deps_before_run: string;
 		KONSOLE_VERSION: string;
 		MANAGERPID: string;
 		INIT_CWD: string;
@@ -300,6 +308,7 @@ declare module '$env/dynamic/private' {
 		KONSOLE_DBUS_ACTIVATION_COOKIE: string;
 		npm_config_prefix: string;
 		USER: string;
+		npm_config_frozen_lockfile: string;
 		COLORFGBG: string;
 		QT_WAYLAND_RECONNECT: string;
 		KDE_SESSION_VERSION: string;
@@ -315,6 +324,7 @@ declare module '$env/dynamic/private' {
 		MANAGERPIDFDID: string;
 		npm_config_user_agent: string;
 		CUDA_DISABLE_PERF_BOOST: string;
+		PNPM_SCRIPT_SRC_DIR: string;
 		npm_execpath: string;
 		XDG_RUNTIME_DIR: string;
 		NODE_PATH: string;
@@ -325,17 +335,17 @@ declare module '$env/dynamic/private' {
 		JOURNAL_STREAM: string;
 		XDG_DATA_DIRS: string;
 		KDE_FULL_SESSION: string;
-		npm_config_noproxy: string;
 		PATH: string;
 		npm_config_node_gyp: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
 		npm_config_global_prefix: string;
 		KDE_APPLICATIONS_AS_SCOPE: string;
 		MAIL: string;
+		npm_config_registry: string;
 		npm_node_execpath: string;
 		LC_NUMERIC: string;
-		OLDPWD: string;
 		KONSOLE_DBUS_WINDOW: string;
+		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}
